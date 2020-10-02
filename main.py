@@ -76,10 +76,7 @@ def main():
         time.sleep(0.01)
         (dmx) = buildDMX(dataL, dataR)
         sender[1].dmx_data = dmx
-        app.MainLoop()
-        frame.Show(True)
-        app.MainLoop()
-        
+      
 
 
 if __name__ == '__main__':
