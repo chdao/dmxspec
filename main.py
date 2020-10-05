@@ -8,9 +8,6 @@ from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 import argparse
 
 maxValue = 2 ** 16
-pixels = 110
-bars = 35
-defaultframes = 512
 
 
 def senderSetup(ip):
@@ -31,6 +28,9 @@ def parse_args(choices):
     parser.add_argument("--multi", help="Aplitude multiplier", default="1.5")
     parser.add_argument("--rr", help="Reverse Right Channel", action="store_false")
     parser.add_argument("--rl", help="Reverse Left Channel", action="store_true")
+    parser.add_argument("--pixels", "-p", help="Length of strip", default=10)
+    parser.add_argument("--frames", "-f", help="Frames for pyAudio", default=512)
+
     return parser.parse_args()
 
 
@@ -129,7 +129,7 @@ def startLED(deviceid, loopback, channels, sampleRate):
                 rgb = (dmx[i]["r"], dmx[i]["g"], dmx[i]["b"])
                 dmxData = dmxData + rgb
         else:
-            for i in range(0, int(pixels / 2)):
+            for i in range(1, int(pixels / 2)):
                 rgb = (dmx[i]["r"], dmx[i]["g"], dmx[i]["b"])
                 dmxData = dmxData + rgb
         if args.rr is True:
@@ -191,6 +191,8 @@ if __name__ == "__main__":
     p = pyaudio.PyAudio()
     soundcardlist = get_soundcards(p)
     args = parse_args(soundcardlist)
+    defaultframes = int(args.frames)
+    pixels = int(args.pixels)
     if args.list is True:
         for i in soundcardlist:
             if not i == "default":
