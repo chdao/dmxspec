@@ -2,6 +2,7 @@ import pyaudio
 import numpy as np
 import sacn
 import time
+import sys
 from comtypes import CLSCTX_ALL
 from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 import argparse
@@ -30,18 +31,20 @@ def parse_args(choices):
     return parser.parse_args()
 
 
-def buildDMX(dataL, dataR):
+def buildDMX(dataL, dataR, olddmx):
+    dmx = {}
     peakL = np.abs(np.max(dataL) - np.min(dataL)) / maxValue * pixels * 1.5
     peakR = np.abs(np.max(dataR) - np.min(dataR)) / maxValue * pixels * 1.5
     dmxL = ()
     dmxR = ()
+
     for i in range(1, int(pixels / 2)):
         if i <= int(peakL) and i < int(pixels / 6):
-            dmxL = dmxL + (0, 255, 0)  # reversed color
+            dmxL = dmxL + (0, 255, 0)
         elif i <= int(peakL) and i > (pixels / 6) and i < (pixels / 3):
-            dmxL = dmxL + (0, 255, 255)  # reversed color
+            dmxL = dmxL + (255, 255, 0)
         elif i <= int(peakL) and i > (pixels / 3):
-            dmxL = dmxL + (0, 0, 255)  # reversed color
+            dmxL = dmxL + (255, 0, 0)
         else:
             dmxL = dmxL + (0, 0, 0)
         if i <= int(peakR) and i < int(pixels / 6):
@@ -50,8 +53,23 @@ def buildDMX(dataL, dataR):
             dmxR = dmxR + (255, 255, 0)
         elif i <= int(peakR) and i > (pixels / 3):
             dmxR = dmxR + (255, 0, 0)
-    dmxL = dmxL[::-1]
+    j = 0
+    for i in range(len(dmxL), 1, -3):
+        dmx[j] = {
+            "r": dmxL[i - 1],
+            "g": dmxL[i - 2],
+            "b": dmxL[i - 3],
+        }
+        j += 1
+    for i in range(0, len(dmxR), 3):
+        dmx[j] = {
+            "r": dmxR[i],
+            "g": dmxR[i + 1],
+            "b": dmxR[i + 2],
+        }
+        j += 1
     dmx = dmxL + dmxR
+
     return dmx
 
 
@@ -65,13 +83,15 @@ def startLED(deviceid, loopback, channels, sampleRate):
         input_device_index=int(deviceid),
         as_loopback=loopback,
     )
+    olddmx = {}
     while True:
         data = np.frombuffer(stream.read(1024), dtype=np.int16)
         dataL = data[0::2]
         dataR = data[1::2]
-        (dmx) = buildDMX(dataL, dataR)
+        (dmx) = buildDMX(dataL, dataR, olddmx)
         sender[1].dmx_data = dmx
         time.sleep(0.03)
+        olddmx = dmx
 
 
 # devices = AudioUtilities.GetSpeakers()
@@ -111,10 +131,10 @@ if __name__ == "__main__":
                     print(i, soundcardlist[i]["name"], "[DEFAULT]")
                 else:
                     print(i, soundcardlist[i]["name"])
-        sys.exit("Done!")
+        sys.exit()
     elif args.ip is None:
         print("IP address required, use --help")
-        sys.exit("Done!")
+        sys.exit()
     try:
         if args.id is None:
             deviceid = soundcardlist["default"]
@@ -136,7 +156,6 @@ if __name__ == "__main__":
         else:
             loopback = False
             channels = soundcardlist[deviceid]["inChannels"]
-
         startLED(
             deviceid,
             loopback,
