@@ -1,2 +1,2 @@
 # dmxspec
-Spectrum Analyzer for DMX LEDs
+VU Meter for DMX LED strips
