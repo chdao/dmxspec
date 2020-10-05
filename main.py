@@ -109,12 +109,12 @@ if __name__ == "__main__":
             if not i == "default":
                 if i == soundcardlist["default"]:
                     print(i, soundcardlist[i]["name"], "[DEFAULT]")
-            else:
-                print(i, soundcardlist[i]["name"])
-                quit()
+                else:
+                    print(i, soundcardlist[i]["name"])
+        sys.exit("Done!")
     elif args.ip is None:
         print("IP address required, use --help")
-        quit()
+        sys.exit("Done!")
     try:
         if args.id is None:
             deviceid = soundcardlist["default"]
@@ -132,12 +132,15 @@ if __name__ == "__main__":
             sender.stop()
         if soundcardlist[deviceid]["outChannels"] > 0:
             loopback = True
+            channels = soundcardlist[deviceid]["outChannels"]
         else:
             loopback = False
+            channels = soundcardlist[deviceid]["inChannels"]
+
         startLED(
             deviceid,
             loopback,
-            soundcardlist[deviceid]["outChannels"],
+            channels,
             soundcardlist[deviceid]["sampleRate"],
         )
     except Exception as e:
