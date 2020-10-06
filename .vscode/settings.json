@@ -1,6 +1,5 @@
 {
     "python.pythonPath": ".venv\\Scripts\\python.exe",
-    "python.envFile": "${workspaceFolder}/dev.env",
     "terminal.integrated.env.linux": {
         "PYTHONPATH": "src"
     },

@@ -28,8 +28,9 @@ def parse_args(choices):
     parser.add_argument("--multi", help="Aplitude multiplier", default="1.5")
     parser.add_argument("--rr", help="Reverse Right Channel", action="store_false")
     parser.add_argument("--rl", help="Reverse Left Channel", action="store_true")
-    parser.add_argument("--pixels", "-p", help="Length of strip", default=10)
-    parser.add_argument("--frames", "-f", help="Frames for pyAudio", default=512)
+    parser.add_argument("-p", "--pixels", help="Length of strip", default=10)
+    parser.add_argument("-f", "--frames", help="Frames for pyAudio", default=512)
+    parser.add_argument("--fps", help="Frame Per Second (refresh rate)", default=30)
 
     return parser.parse_args()
 
@@ -42,22 +43,24 @@ def buildDMX(dataL, dataR, olddmx):
     peakR = (
         np.abs(np.max(dataR) - np.min(dataR)) / maxValue * pixels * float(args.multi)
     )
-    j = 0
-    for i in range(0, pixels):
-        if i <= int(pixels / 2):
-            if i <= int(peakL) and i < int(pixels / 6):
+    j = 1
+    for i in range(1, pixels):
+        if i <= int((pixels / 2)):
+            division = pixels / 6
+            if i <= int(peakL) and i <= int(pixels / 6):
                 dmx[j] = {
-                    "r": 0,
+                    "r": int((i * (100 / division)) * 2.55),
                     "g": 255,
                     "b": 0,
                 }
-            elif i <= int(peakL) and i > (pixels / 6) and i < (pixels / 3):
+
+            elif i <= int(peakL) and i > ((pixels / 6)) and i <= ((pixels / 3)):
                 dmx[j] = {
-                    "r": 255,
-                    "g": 255,
+                    "r": int(((i - division) * (100 / division)) * 2.55),
+                    "g": 255 - int(((i - division) * (100 / (2 * division))) * 2.55),
                     "b": 0,
                 }
-            elif i <= int(peakL) and i > (pixels / 3):
+            elif i <= int(peakL) and i > ((pixels / 3)):
                 dmx[j] = {
                     "r": 255,
                     "g": 0,
@@ -70,22 +73,22 @@ def buildDMX(dataL, dataR, olddmx):
                     "b": 0,
                 }
         else:
-            if i <= (int(peakR) + int(pixels / 2)) and i < (
-                int(pixels / 6) + int(pixels / 2) + 1
+            if i <= (int(peakR) + int(pixels / 2)) and i <= (
+                int(pixels / 6) + int(pixels / 2)
             ):
                 dmx[j] = {
-                    "r": 0,
+                    "r": int(((i - (3 * division)) * (100 / division)) * 2.55),
                     "g": 255,
                     "b": 0,
                 }
             elif (
                 i <= (int(peakR) + int(pixels / 2))
-                and i > (int(pixels / 6) + int(pixels / 2))
+                and i >= (int(pixels / 6) + int(pixels / 2))
                 and i < ((pixels / 3) + int(pixels / 2))
             ):
                 dmx[j] = {
                     "r": 255,
-                    "g": 255,
+                    "g": 255 - int(((i - (4 * division)) * (100 / division)) * 2.55),
                     "b": 0,
                 }
             elif i <= (int(peakR) + int(pixels / 2)) and i > (
@@ -141,23 +144,15 @@ def startLED(deviceid, loopback, channels, sampleRate):
                 )  # this works, no exception
                 dmxData = dmxData + rgb
         else:
-            for i in range(len(dmx) - 1, int(pixels / 2), -1):
-                try:
-                    rgb = (
-                        dmx[i]["r"],
-                        dmx[i]["g"],
-                        dmx[i]["b"],
-                    )
-                    dmxData = dmxData + rgb
-                except Exception as e:
-                    print(e)
-                    break
-        #        else:
-        #            for i in range(int(pixels / 2), int(pixels)):
-        #                rgb = dmx[i]["r"], dmx[i]["g"], dmx[i]["b"]
-        #                dmxData = dmxData + rgb
+            for i in range(len(dmx), int(pixels / 2), -1):
+                rgb = (
+                    dmx[i]["r"],
+                    dmx[i]["g"],
+                    dmx[i]["b"],
+                )
+                dmxData = dmxData + rgb
         sender[1].dmx_data = dmxData
-        time.sleep(0.03)
+        time.sleep(1 / int(args.fps))
         olddmx = dmx
 
 
@@ -209,16 +204,10 @@ if __name__ == "__main__":
             deviceid = soundcardlist["default"]
         else:
             deviceid = int(args.id)
-        try:
-            sender = sacn.sACNsender()
-            sender.start()
-            sender.activate_output(1)
-            sender[1].destination = str(args.ip)
-        except Exception as e:
-            print(e)
-            sender.stop()
-        except:
-            sender.stop()
+        sender = sacn.sACNsender()
+        sender.start()
+        sender.activate_output(1)
+        sender[1].destination = str(args.ip)
         if soundcardlist[deviceid]["outChannels"] > 0:
             loopback = True
             channels = soundcardlist[deviceid]["outChannels"]
