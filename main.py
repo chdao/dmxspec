@@ -59,13 +59,13 @@ def buildDMX(dataL, dataR, olddmx):
                     "b": 0,
                 }
 
-            elif i <= int(peakL) and i > (pixels / 6) and i <= ((pixels / 3)):
+            elif i <= int(peakL) and i > (division) and i <= (division * 2):
                 dmx[i] = {
                     "r": 255,
                     "g": 255 - int(((i - division) * (100 / division)) * 2.55),
                     "b": 0,
                 }
-            elif i <= int(peakL) and i > ((pixels / 3)):
+            elif i <= int(peakL) and i > (division * 2):
                 dmx[i] = {
                     "r": 255,
                     "g": 0,
@@ -78,23 +78,23 @@ def buildDMX(dataL, dataR, olddmx):
                     "b": 0,
                 }
         else:
-            if i <= (int(peakR) + int(pixels / 2)) and i <= (int(4 * pixels / 6)):
+            if i <= (int(peakR) + (division * 3)) and i <= (int(4 * division)):
                 dmx[i] = {
                     "r": int(((i - (3 * division)) * (100 / division)) * 2.55),
                     "g": 255,
                     "b": 0,
                 }
             elif (
-                i <= (int(peakR) + int(pixels / 2))
+                i <= (int(peakR) + (division * 3))
                 and i >= int(4 * division)
                 and i < int(5 * division)
             ):
                 dmx[i] = {
                     "r": 255,
-                    "g": 255 - int(((i - (4 * division)) * (100 / division)) * 2.55),
+                    "g": 255 - int((((i) - (4 * division)) * (100 / division)) * 2.55),
                     "b": 0,
                 }
-            elif i <= (int(peakR + division * 2)) and i >= (int(5 * pixels / 6)):
+            elif i <= (int(peakR + (division * 3))) and i >= (int(5 * division)):
                 dmx[i] = {
                     "r": 255,
                     "g": 0,
@@ -136,7 +136,7 @@ def startLED(deviceid, loopback, channels, sampleRate):
                 rgb = (dmx[i]["r"], dmx[i]["g"], dmx[i]["b"])
                 dmxData = dmxData + rgb
         if args.rr is True:
-            for i in range((int(pixels / 2)), len(dmx)):
+            for i in range((int(pixels / 2) + 1), len(dmx)):
                 rgb = (
                     dmx[i]["r"],
                     dmx[i]["g"],
