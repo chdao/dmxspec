@@ -38,10 +38,16 @@ def parse_args(choices):
 def buildDMX(dataL, dataR, olddmx):
     dmx = {}
     peakL = (
-        np.abs(np.max(dataL) - np.min(dataL)) / maxValue * pixels * float(args.multi)
+        int(np.abs(np.max(dataL)) - int(np.min(dataL)))
+        / maxValue
+        * pixels
+        * float(args.multi)
     )
     peakR = (
-        np.abs(np.max(dataR) - np.min(dataR)) / maxValue * pixels * float(args.multi)
+        int(np.abs(np.max(dataR)) - int(np.min(dataR)))
+        / maxValue
+        * pixels
+        * float(args.multi)
     )
     for i in range(1, pixels + 1):
         if i <= int((pixels / 2)):
