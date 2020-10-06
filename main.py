@@ -43,31 +43,30 @@ def buildDMX(dataL, dataR, olddmx):
     peakR = (
         np.abs(np.max(dataR) - np.min(dataR)) / maxValue * pixels * float(args.multi)
     )
-    j = 1
-    for i in range(1, pixels):
+    for i in range(1, pixels + 1):
         if i <= int((pixels / 2)):
             division = pixels / 6
             if i <= int(peakL) and i <= int(pixels / 6):
-                dmx[j] = {
+                dmx[i] = {
                     "r": int((i * (100 / division)) * 2.55),
                     "g": 255,
                     "b": 0,
                 }
 
-            elif i <= int(peakL) and i > ((pixels / 6)) and i <= ((pixels / 3)):
-                dmx[j] = {
-                    "r": int(((i - division) * (100 / division)) * 2.55),
+            elif i <= int(peakL) and i > (pixels / 6) and i <= ((pixels / 3)):
+                dmx[i] = {
+                    "r": 255,
                     "g": 255 - int(((i - division) * (100 / division)) * 2.55),
                     "b": 0,
                 }
             elif i <= int(peakL) and i > ((pixels / 3)):
-                dmx[j] = {
+                dmx[i] = {
                     "r": 255,
                     "g": 0,
                     "b": 0,
                 }
             else:
-                dmx[j] = {
+                dmx[i] = {
                     "r": 0,
                     "g": 0,
                     "b": 0,
@@ -76,7 +75,7 @@ def buildDMX(dataL, dataR, olddmx):
             if i <= (int(peakR) + int(pixels / 2)) and i <= (
                 int(pixels / 6) + int(pixels / 2)
             ):
-                dmx[j] = {
+                dmx[i] = {
                     "r": int(((i - (3 * division)) * (100 / division)) * 2.55),
                     "g": 255,
                     "b": 0,
@@ -86,26 +85,25 @@ def buildDMX(dataL, dataR, olddmx):
                 and i >= (int(pixels / 6) + int(pixels / 2))
                 and i < ((pixels / 3) + int(pixels / 2))
             ):
-                dmx[j] = {
+                dmx[i] = {
                     "r": 255,
                     "g": 255 - int(((i - (4 * division)) * (100 / division)) * 2.55),
                     "b": 0,
                 }
-            elif i <= (int(peakR) + int(pixels / 2)) and i > (
+            elif i <= (int(peakR) + int(pixels / 2)) and i >= (
                 (pixels / 3) + int(pixels / 2)
             ):
-                dmx[j] = {
+                dmx[i] = {
                     "r": 255,
                     "g": 0,
                     "b": 0,
                 }
             else:
-                dmx[j] = {
+                dmx[i] = {
                     "r": 0,
                     "g": 0,
                     "b": 0,
                 }
-        j += 1
     return dmx
 
 
@@ -128,15 +126,15 @@ def startLED(deviceid, loopback, channels, sampleRate):
         dmxData = ()
         rgb = ()
         if args.rl is False:
-            for i in range(int(pixels / 2), 0, -1):
+            for i in range(int(pixels / 2), 1, -1):
                 rgb = (dmx[i]["r"], dmx[i]["g"], dmx[i]["b"])
                 dmxData = dmxData + rgb
         else:
-            for i in range(1, int(pixels / 2)):
+            for i in range(1, int(pixels / 2) + 1):
                 rgb = (dmx[i]["r"], dmx[i]["g"], dmx[i]["b"])
                 dmxData = dmxData + rgb
         if args.rr is True:
-            for i in range((int(pixels / 2) + 1), int(pixels)):
+            for i in range((int(pixels / 2)), len(dmx)):
                 rgb = (
                     dmx[i]["r"],
                     dmx[i]["g"],
