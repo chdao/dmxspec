@@ -57,7 +57,7 @@ def buildDMX(dataL, dataR, olddmx):
             elif i <= int(peakL) and i > ((pixels / 6)) and i <= ((pixels / 3)):
                 dmx[j] = {
                     "r": int(((i - division) * (100 / division)) * 2.55),
-                    "g": 255 - int(((i - division) * (100 / (2 * division))) * 2.55),
+                    "g": 255 - int(((i - division) * (100 / division)) * 2.55),
                     "b": 0,
                 }
             elif i <= int(peakL) and i > ((pixels / 3)):
