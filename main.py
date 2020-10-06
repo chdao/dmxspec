@@ -38,18 +38,18 @@ def parse_args(choices):
 def buildDMX(dataL, dataR, olddmx):
     dmx = {}
     peakL = (
-        int(np.abs(np.max(dataL)) - int(np.min(dataL)))
-        / maxValue
-        * pixels
-        * float(args.multi)
+            int(np.abs(np.max(dataL)) - int(np.min(dataL)))
+            / maxValue
+            * pixels
+            * float(args.multi)
     )
     peakR = (
-        int(np.abs(np.max(dataR)) - int(np.min(dataR)))
-        / maxValue
-        * pixels
-        * float(args.multi)
+            int(np.abs(np.max(dataR)) - int(np.min(dataR)))
+            / maxValue
+            * pixels
+            * float(args.multi)
     )
-    for i in range(1, pixels + 1):
+    for i in range(pixels):
         if i <= int((pixels / 2)):
             division = pixels / 6
             if i <= int(peakL) and i <= int(pixels / 6):
@@ -59,24 +59,37 @@ def buildDMX(dataL, dataR, olddmx):
                     "b": 0,
                 }
 
-            elif i <= int(peakL) and i > (division) and i <= (division * 2):
+            elif int(peakL) >= i > division and i <= (division * 2):
                 dmx[i] = {
                     "r": 255,
                     "g": 255 - int(((i - division) * (100 / division)) * 2.55),
                     "b": 0,
                 }
-            elif i <= int(peakL) and i > (division * 2):
+            elif int(peakL) >= i > (division * 2):
                 dmx[i] = {
                     "r": 255,
                     "g": 0,
                     "b": 0,
                 }
             else:
-                dmx[i] = {
-                    "r": 0,
-                    "g": 0,
-                    "b": 0,
-                }
+                try:
+                    dmx[i] = {
+                        "r": int((olddmx[i]['r'] / 30) * 10),
+                        "g": int((olddmx[i]['g'] / 30) * 10),
+                        "b": int((olddmx[i]['b'] / 30) * 10)
+                    }
+                    if olddmx[i]['r'] < 2:
+                        dmx[i]['r'] = 0
+                    if olddmx[i]['g'] < 2:
+                        dmx[i]['g'] = 0
+                    if olddmx[i]['b'] < 2:
+                        dmx[i]['b'] = 0
+                except:
+                    dmx[i] = {
+                        "r": 0,
+                        "g": 0,
+                        "b": 0,
+                    }
         else:
             if i <= (int(peakR) + (division * 3)) and i <= (int(4 * division)):
                 dmx[i] = {
@@ -85,9 +98,8 @@ def buildDMX(dataL, dataR, olddmx):
                     "b": 0,
                 }
             elif (
-                i <= (int(peakR) + (division * 3))
-                and i >= int(4 * division)
-                and i < int(5 * division)
+                    (int(peakR) + (division * 3)) >= i >= int(4 * division)
+                    and i < int(5 * division)
             ):
                 dmx[i] = {
                     "r": 255,
@@ -101,11 +113,24 @@ def buildDMX(dataL, dataR, olddmx):
                     "b": 0,
                 }
             else:
-                dmx[i] = {
-                    "r": 0,
-                    "g": 0,
-                    "b": 0,
-                }
+                try:
+                    dmx[i] = {
+                        "r": int(olddmx[i]['r'] / 2),
+                        "g": int(olddmx[i]['g'] / 2),
+                        "b": int(olddmx[i]['b'] / 2)
+                    }
+                    if olddmx[i]['r'] < 2:
+                        dmx[i]['r'] = 0
+                    if olddmx[i]['g'] < 2:
+                        dmx[i]['g'] = 0
+                    if olddmx[i]['b'] < 2:
+                        dmx[i]['b'] = 0
+                except:
+                    dmx[i] = {
+                        "r": 0,
+                        "g": 0,
+                        "b": 0,
+                    }
     return dmx
 
 
@@ -124,19 +149,22 @@ def startLED(deviceid, loopback, channels, sampleRate):
         data = np.frombuffer(stream.read(1024), dtype=np.int16)
         dataL = data[0::2]
         dataR = data[1::2]
-        (dmx) = buildDMX(dataL, dataR, olddmx)
+        try:
+            (dmx) = buildDMX(dataL, dataR, olddmx)
+        except:
+            pass
         dmxData = ()
         rgb = ()
         if args.rl is False:
-            for i in range(int(pixels / 2), 1, -1):
+            for i in range(int(pixels / 2), -1, -1):
                 rgb = (dmx[i]["r"], dmx[i]["g"], dmx[i]["b"])
                 dmxData = dmxData + rgb
         else:
-            for i in range(1, int(pixels / 2) + 1):
+            for i in range(1, int(pixels / 2) - 1):
                 rgb = (dmx[i]["r"], dmx[i]["g"], dmx[i]["b"])
                 dmxData = dmxData + rgb
         if args.rr is True:
-            for i in range((int(pixels / 2) + 1), len(dmx)):
+            for i in range((int(pixels / 2) + 1), len(dmx) + 1):
                 rgb = (
                     dmx[i]["r"],
                     dmx[i]["g"],
@@ -144,7 +172,7 @@ def startLED(deviceid, loopback, channels, sampleRate):
                 )  # this works, no exception
                 dmxData = dmxData + rgb
         else:
-            for i in range(len(dmx), int(pixels / 2), -1):
+            for i in range(len(dmx) - 1, int(pixels / 2), -1):
                 rgb = (
                     dmx[i]["r"],
                     dmx[i]["g"],
@@ -221,7 +249,7 @@ if __name__ == "__main__":
             soundcardlist[deviceid]["sampleRate"],
         )
     except Exception as e:
-        print(e)
+        print("Exception:", e)
         sender.stop()
     except:
         sender.stop()
