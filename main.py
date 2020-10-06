@@ -78,9 +78,7 @@ def buildDMX(dataL, dataR, olddmx):
                     "b": 0,
                 }
         else:
-            if i <= (int(peakR) + int(pixels / 2)) and i <= (
-                int(pixels / 6) + int(pixels / 2)
-            ):
+            if i <= (int(peakR) + int(pixels / 2)) and i <= (int(4 * pixels / 6)):
                 dmx[i] = {
                     "r": int(((i - (3 * division)) * (100 / division)) * 2.55),
                     "g": 255,
@@ -88,17 +86,15 @@ def buildDMX(dataL, dataR, olddmx):
                 }
             elif (
                 i <= (int(peakR) + int(pixels / 2))
-                and i >= (int(pixels / 6) + int(pixels / 2))
-                and i < ((pixels / 3) + int(pixels / 2))
+                and i >= int(4 * division)
+                and i < int(5 * division)
             ):
                 dmx[i] = {
                     "r": 255,
                     "g": 255 - int(((i - (4 * division)) * (100 / division)) * 2.55),
                     "b": 0,
                 }
-            elif i <= (int(peakR) + int(pixels / 2)) and i >= (
-                (pixels / 3) + int(pixels / 2)
-            ):
+            elif i <= (int(peakR + division * 2)) and i >= (int(5 * pixels / 6)):
                 dmx[i] = {
                     "r": 255,
                     "g": 0,
