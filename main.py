@@ -48,9 +48,7 @@ class BuildDMX:
         for i in range(channel_size):
             division = int(i // (channel_size / 6) + 1)
             if int(peak) >= i > 0:
-                if division > 2:
-                    i_section = i - section_size
-                    fade_value = int(((i - (section_size * (division - 1))) * section_size) * 2.55)
+                fade_value = int(((i - (section_size * (division - 1))) * section_size) * 2.55)
                 if peak >= 0.1:
                     if division >= 6:
                         dmx[i] = {
