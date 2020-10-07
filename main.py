@@ -26,7 +26,7 @@ def parse_args(choices):
     parser.add_argument("--id", help="Index of the soundcard")
     parser.add_argument("--list", help="List available soundcards", action="store_true")
     parser.add_argument("--multi", help="Aplitude multiplier", default="1.5")
-    parser.add_argument("--rr", help="Reverse Right Channel", action="store_false")
+    parser.add_argument("--rr", help="Reverse Right Channel", action="store_true")
     parser.add_argument("--rl", help="Reverse Left Channel", action="store_true")
     parser.add_argument("-p", "--pixels", help="Length of strip", default=10)
     parser.add_argument("-f", "--frames", help="Frames for pyAudio", default=512)
@@ -35,74 +35,74 @@ def parse_args(choices):
     return parser.parse_args()
 
 
-def build_dmx_dict(data, previous_dmx):
-    dmx = {}
-    peak = (
-            int(np.abs(np.max(data)) - int(np.min(data)))
-            / maxValue
-            * pixels
-            * float(args.multi)
-    )
-    for i in range(int(pixels / 2)):
-        division = pixels / 6
-        if i <= int(peak) and i <= int(pixels / 6) and peak > 0.1:
-            dmx[i] = {
-                "r": int((i * (100 / division)) * 2.55),
-                "g": 255,
-                "b": 0,
-            }
-
-        elif int(peak) >= i > division and i <= (division * 2):
-            dmx[i] = {
-                "r": 255,
-                "g": 255 - int(((i - division) * (100 / division)) * 2.55),
-                "b": 0,
-            }
-        elif int(peak) >= i > (division * 2):
-            dmx[i] = {
-                "r": 255,
-                "g": 0,
-                "b": 0,
-            }
-        else:
-            try:
+class BuildDMX:
+    def dict(data, previous_dmx, fps):
+        dmx = {}
+        peak = (
+                int(np.abs(np.max(data)) - int(np.min(data)))
+                / maxValue
+                * pixels
+                * float(args.multi)
+        )
+        for i in range(int(pixels / 2)):
+            division = pixels / 6
+            if i <= int(peak) and i <= int(pixels / 6) and peak > 0.1:
                 dmx[i] = {
-                    "r": int((previous_dmx[i]['r'] / 30) * 20),
-                    "g": int((previous_dmx[i]['g'] / 30) * 20),
-                    "b": int((previous_dmx[i]['b'] / 30) * 20)
+                    "r": int((i * (100 / division)) * 2.55),
+                    "g": 255,
+                    "b": 0,
                 }
-            except LookupError:
+
+            elif int(peak) >= i > division and i <= (division * 2):
                 dmx[i] = {
-                    "r": 0,
+                    "r": 255,
+                    "g": 255 - int(((i - division) * (100 / division)) * 2.55),
+                    "b": 0,
+                }
+            elif int(peak) >= i > (division * 2):
+                dmx[i] = {
+                    "r": 255,
                     "g": 0,
                     "b": 0,
                 }
-    return dmx
+            else:
+                try:
+                    dmx[i] = {
+                        "r": int((previous_dmx[i]['r'] / fps) * (fps / 3)),
+                        "g": int((previous_dmx[i]['g'] / fps) * (fps / 3)),
+                        "b": int((previous_dmx[i]['b'] / fps) * (fps / 3))
+                    }
+                except LookupError:
+                    dmx[i] = {
+                        "r": 0,
+                        "g": 0,
+                        "b": 0,
+                    }
+        return dmx
+
+    def tuple(dmx_dict, reverse):
+        dmx_data = ()
+        rgb = ()
+        if reverse is False:
+            for i in range(len(dmx_dict)):
+                rgb = (
+                    dmx_dict[i]["r"],
+                    dmx_dict[i]["g"],
+                    dmx_dict[i]["b"]
+                )
+                dmx_data = dmx_data + rgb
+        elif reverse is True:
+            for i in range(len(dmx_dict) - 1, -1, -1):
+                rgb = (
+                    dmx_dict[i]["r"],
+                    dmx_dict[i]["g"],
+                    dmx_dict[i]["b"]
+                )
+                dmx_data = dmx_data + rgb
+        return dmx_data
 
 
-def build_dmx_tupple(dmx_dict, reverse):
-    dmx_data = ()
-    rgb = ()
-    if reverse is False:
-        for i in range(len(dmx_dict)):
-            rgb = (
-                dmx_dict[i]["r"],
-                dmx_dict[i]["g"],
-                dmx_dict[i]["b"]
-            )
-            dmx_data = dmx_data + rgb
-    elif reverse is True:
-        for i in range(len(dmx_dict) - 1, -1, -1):
-            rgb = (
-                dmx_dict[i]["r"],
-                dmx_dict[i]["g"],
-                dmx_dict[i]["b"]
-            )
-            dmx_data = dmx_data + rgb
-    return dmx_data
-
-
-def startLED(deviceid, loopback, channels, sampleRate):
+def start_sequence(deviceid, loopback, channels, sampleRate, fps):
     stream = p.open(
         format=pyaudio.paInt16,
         channels=int(channels),
@@ -120,12 +120,12 @@ def startLED(deviceid, loopback, channels, sampleRate):
         data = np.frombuffer(stream.read(1024), dtype=np.int16)
         data_left = data[0::2]
         data_right = data[1::2]
-        (dmx_dict_left) = build_dmx_dict(data_left, old_left)
-        (dmx_dict_right) = build_dmx_dict(data_right, old_right)
-        dmx_tupple_left = build_dmx_tupple(dmx_dict_left, args.rl)
-        dmx_tupple_right = build_dmx_tupple(dmx_dict_right, args.rr)
+        (dmx_dict_left) = BuildDMX.dict(data_left, old_left, fps)
+        (dmx_dict_right) = BuildDMX.dict(data_right, old_right, fps)
+        dmx_tupple_left = BuildDMX.tuple(dmx_dict_left, args.rl)
+        dmx_tupple_right = BuildDMX.tuple(dmx_dict_right, args.rr)
         sender[1].dmx_data = dmx_tupple_left + dmx_tupple_right
-        time.sleep(1 / int(args.fps))
+        time.sleep(1 / int(fps))
         old_left = dmx_dict_left
         old_right = dmx_dict_right
 
@@ -183,11 +183,12 @@ if __name__ == "__main__":
         else:
             loopback = False
             channels = soundcardlist[deviceid]["inChannels"]
-        startLED(
+        start_sequence(
             deviceid,
             loopback,
             channels,
             soundcardlist[deviceid]["sampleRate"],
+            args.fps,
         )
     except Exception as e:
         print("Exception:", e)
