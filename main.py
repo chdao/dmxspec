@@ -67,18 +67,11 @@ def build_dmx_dict(data, previous_dmx):
         else:
             try:
                 dmx[i] = {
-                    "r": int((previous_dmx[i]['r'] / 30) * 25),
-                    "g": int((previous_dmx[i]['g'] / 30) * 25),
-                    "b": int((previous_dmx[i]['b'] / 30) * 25)
+                    "r": int((previous_dmx[i]['r'] / 30) * 20),
+                    "g": int((previous_dmx[i]['g'] / 30) * 20),
+                    "b": int((previous_dmx[i]['b'] / 30) * 20)
                 }
-                if previous_dmx[i]['r'] < 2:
-                    dmx[i]['r'] = 0
-                if previous_dmx[i]['g'] < 2:
-                    dmx[i]['g'] = 0
-                if previous_dmx[i]['b'] < 2:
-                    dmx[i]['b'] = 0
-            except Exception as e:
-                print(e)
+            except LookupError:
                 dmx[i] = {
                     "r": 0,
                     "g": 0,
