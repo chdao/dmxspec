@@ -35,103 +35,78 @@ def parse_args(choices):
     return parser.parse_args()
 
 
-def buildDMX(dataL, dataR, olddmx):
+def build_dmx_dict(data, previous_dmx):
     dmx = {}
-    peakL = (
-            int(np.abs(np.max(dataL)) - int(np.min(dataL)))
+    peak = (
+            int(np.abs(np.max(data)) - int(np.min(data)))
             / maxValue
             * pixels
             * float(args.multi)
     )
-    peakR = (
-            int(np.abs(np.max(dataR)) - int(np.min(dataR)))
-            / maxValue
-            * pixels
-            * float(args.multi)
-    )
-    for i in range(pixels):
-        if i <= int((pixels / 2)):
-            division = pixels / 6
-            if i <= int(peakL) and i <= int(pixels / 6):
-                dmx[i] = {
-                    "r": int((i * (100 / division)) * 2.55),
-                    "g": 255,
-                    "b": 0,
-                }
+    for i in range(int(pixels / 2)):
+        division = pixels / 6
+        if i <= int(peak) and i <= int(pixels / 6) and peak > 0.1:
+            dmx[i] = {
+                "r": int((i * (100 / division)) * 2.55),
+                "g": 255,
+                "b": 0,
+            }
 
-            elif int(peakL) >= i > division and i <= (division * 2):
-                dmx[i] = {
-                    "r": 255,
-                    "g": 255 - int(((i - division) * (100 / division)) * 2.55),
-                    "b": 0,
-                }
-            elif int(peakL) >= i > (division * 2):
-                dmx[i] = {
-                    "r": 255,
-                    "g": 0,
-                    "b": 0,
-                }
-            else:
-                try:
-                    dmx[i] = {
-                        "r": int((olddmx[i]['r'] / 30) * 10),
-                        "g": int((olddmx[i]['g'] / 30) * 10),
-                        "b": int((olddmx[i]['b'] / 30) * 10)
-                    }
-                    if olddmx[i]['r'] < 2:
-                        dmx[i]['r'] = 0
-                    if olddmx[i]['g'] < 2:
-                        dmx[i]['g'] = 0
-                    if olddmx[i]['b'] < 2:
-                        dmx[i]['b'] = 0
-                except:
-                    dmx[i] = {
-                        "r": 0,
-                        "g": 0,
-                        "b": 0,
-                    }
+        elif int(peak) >= i > division and i <= (division * 2):
+            dmx[i] = {
+                "r": 255,
+                "g": 255 - int(((i - division) * (100 / division)) * 2.55),
+                "b": 0,
+            }
+        elif int(peak) >= i > (division * 2):
+            dmx[i] = {
+                "r": 255,
+                "g": 0,
+                "b": 0,
+            }
         else:
-            if i <= (int(peakR) + (division * 3)) and i <= (int(4 * division)):
+            try:
                 dmx[i] = {
-                    "r": int(((i - (3 * division)) * (100 / division)) * 2.55),
-                    "g": 255,
-                    "b": 0,
+                    "r": int((previous_dmx[i]['r'] / 30) * 25),
+                    "g": int((previous_dmx[i]['g'] / 30) * 25),
+                    "b": int((previous_dmx[i]['b'] / 30) * 25)
                 }
-            elif (
-                    (int(peakR) + (division * 3)) >= i >= int(4 * division)
-                    and i < int(5 * division)
-            ):
+                if previous_dmx[i]['r'] < 2:
+                    dmx[i]['r'] = 0
+                if previous_dmx[i]['g'] < 2:
+                    dmx[i]['g'] = 0
+                if previous_dmx[i]['b'] < 2:
+                    dmx[i]['b'] = 0
+            except Exception as e:
+                print(e)
                 dmx[i] = {
-                    "r": 255,
-                    "g": 255 - int((((i) - (4 * division)) * (100 / division)) * 2.55),
-                    "b": 0,
-                }
-            elif i <= (int(peakR + (division * 3))) and i >= (int(5 * division)):
-                dmx[i] = {
-                    "r": 255,
+                    "r": 0,
                     "g": 0,
                     "b": 0,
                 }
-            else:
-                try:
-                    dmx[i] = {
-                        "r": int(olddmx[i]['r'] / 2),
-                        "g": int(olddmx[i]['g'] / 2),
-                        "b": int(olddmx[i]['b'] / 2)
-                    }
-                    if olddmx[i]['r'] < 2:
-                        dmx[i]['r'] = 0
-                    if olddmx[i]['g'] < 2:
-                        dmx[i]['g'] = 0
-                    if olddmx[i]['b'] < 2:
-                        dmx[i]['b'] = 0
-                except:
-                    dmx[i] = {
-                        "r": 0,
-                        "g": 0,
-                        "b": 0,
-                    }
     return dmx
+
+
+def build_dmx_tupple(dmx_dict, reverse):
+    dmx_data = ()
+    rgb = ()
+    if reverse is False:
+        for i in range(len(dmx_dict)):
+            rgb = (
+                dmx_dict[i]["r"],
+                dmx_dict[i]["g"],
+                dmx_dict[i]["b"]
+            )
+            dmx_data = dmx_data + rgb
+    elif reverse is True:
+        for i in range(len(dmx_dict) - 1, -1, -1):
+            rgb = (
+                dmx_dict[i]["r"],
+                dmx_dict[i]["g"],
+                dmx_dict[i]["b"]
+            )
+            dmx_data = dmx_data + rgb
+    return dmx_data
 
 
 def startLED(deviceid, loopback, channels, sampleRate):
@@ -144,54 +119,27 @@ def startLED(deviceid, loopback, channels, sampleRate):
         input_device_index=int(deviceid),
         as_loopback=loopback,
     )
-    olddmx = {}
+    old_left = {}
+    old_right = {}
     while True:
+        dmx_dict_left = {}
+        dmx_dict_right = {}
         data = np.frombuffer(stream.read(1024), dtype=np.int16)
-        dataL = data[0::2]
-        dataR = data[1::2]
-        try:
-            (dmx) = buildDMX(dataL, dataR, olddmx)
-        except:
-            pass
-        dmxData = ()
-        rgb = ()
-        if args.rl is False:
-            for i in range(int(pixels / 2), -1, -1):
-                rgb = (dmx[i]["r"], dmx[i]["g"], dmx[i]["b"])
-                dmxData = dmxData + rgb
-        else:
-            for i in range(1, int(pixels / 2) - 1):
-                rgb = (dmx[i]["r"], dmx[i]["g"], dmx[i]["b"])
-                dmxData = dmxData + rgb
-        if args.rr is True:
-            for i in range((int(pixels / 2) + 1), len(dmx) + 1):
-                rgb = (
-                    dmx[i]["r"],
-                    dmx[i]["g"],
-                    dmx[i]["b"],
-                )  # this works, no exception
-                dmxData = dmxData + rgb
-        else:
-            for i in range(len(dmx) - 1, int(pixels / 2), -1):
-                rgb = (
-                    dmx[i]["r"],
-                    dmx[i]["g"],
-                    dmx[i]["b"],
-                )
-                dmxData = dmxData + rgb
-        sender[1].dmx_data = dmxData
+        data_left = data[0::2]
+        data_right = data[1::2]
+        (dmx_dict_left) = build_dmx_dict(data_left, old_left)
+        (dmx_dict_right) = build_dmx_dict(data_right, old_right)
+        dmx_tupple_left = build_dmx_tupple(dmx_dict_left, args.rl)
+        dmx_tupple_right = build_dmx_tupple(dmx_dict_right, args.rr)
+        sender[1].dmx_data = dmx_tupple_left + dmx_tupple_right
         time.sleep(1 / int(args.fps))
-        olddmx = dmx
+        old_left = dmx_dict_left
+        old_right = dmx_dict_right
 
 
 # devices = AudioUtilities.GetSpeakers()
 # interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
 # volume = cast(interface, POINTER(IAudioEndpointVolume))
-
-
-def stopLED():
-    sender.stop()
-
 
 def get_soundcards(p):
     soundcards = {}
