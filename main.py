@@ -25,70 +25,66 @@ def parse_args(choices):
     parser.add_argument("--ip", help="Destination DMX server")
     parser.add_argument("--id", help="Index of the soundcard")
     parser.add_argument("--list", help="List available soundcards", action="store_true")
-    parser.add_argument("--multi", help="Aplitude multiplier", default="1.5")
+    parser.add_argument("--multi", type=int, help="Aplitude multiplier", default="1.5")
     parser.add_argument("--rr", help="Reverse Right Channel", action="store_true")
     parser.add_argument("--rl", help="Reverse Left Channel", action="store_true")
-    parser.add_argument("-p", "--pixels", help="Length of strip", default=10)
-    parser.add_argument("-f", "--frames", help="Frames for pyAudio", default=512)
-    parser.add_argument("--fps", help="Frame Per Second (refresh rate)", default=30)
+    parser.add_argument("-p", "--pixels", type=int, help="Length of strip", default=10)
+    parser.add_argument("-f", "--frames", type=int, help="Frames for pyAudio", default=512)
+    parser.add_argument("--fps", type=int, help="Frame Per Second (refresh rate)", default=30)
+    parser.add_argument("-b", "--brightness", type=int, help="Brightness, 0..100", default=100)
     return parser.parse_args()
 
 class BuildDMX:
-    def dict(data, previous_dmx, fps):
+    def dict(data, previous_dmx, fps, brightness):
         dmx = {}
+        channel_size = pixels // 2
+        section_size = channel_size // 6
         peak = (
                 int(np.abs(np.max(data)) - int(np.min(data)))
                 / maxValue
                 * pixels
                 * float(args.multi)
         )
-        for i in range(int(pixels / 2)):
-            division = ((pixels // 12) // 2)
-            if int(peak) >= i and peak >= 0.1:
-                if division * 11 < i:
-                    dmx[i] = {
-                        "r": 255,
-                        "g": 0,
-                        "b": 0,
-                    }
-                elif division * 10 < i <= division * 11:
-                    fade_value = int((i - division) * (100 / (division * 11)) * 2.55)
-                    dmx[i] = {
-                        "r": 255,
-                        "g": 255 - fade_value,
-                        "b": 0,
-                    }
-                elif division * 9 < i <= division * 10:
-                    fade_value = int((i - division) * (100 / (division * 10)) * 2.55)
-                    dmx[i] = {
-                        "r": fade_value,
-                        "g": 255,
-                        "b": 0,
-                    }
-                elif division * 8 < i <= division * 9:
-                    dmx[i] = {
-                        "r": 255,
-                        "g": 255,
-                        "b": 0,
-                    }
-                elif division * 7 < i <= division * 8:
-                    fade_value = int((i - division) * (100 / (division * 8)) * 2.55)
-                    dmx[i] = {
-                        "r": fade_value,
-                        "g": 255,
-                        "b": 0}
-                else:
-                    dmx[i] = {
-                        "r": 0,
-                        "g": 255,
-                        "b": 0,
-                    }
+        for i in range(channel_size):
+            division = int(i // (channel_size / 6) + 1)
+            if int(peak) >= i > 0:
+                if division > 2:
+                    i_section = i - section_size
+                    fade_value = int(((i - (section_size * (division - 1))) * section_size) * 2.55)
+                if peak >= 0.1:
+                    if division >= 6:
+                        dmx[i] = {
+                            "r": int(255 * (brightness/100)),
+                            "g": 0,
+                            "b": 0,
+                        }
+                    elif division >= 5:
+                        dmx[i] = {
+                            "r": int(255 * (brightness/100)),
+                            "g": int((255 - fade_value) * (brightness/100)),
+                            "b": 0,
+                        }
+                    elif division > 4:
+                        dmx[i] = {
+                            "r": int((255 - fade_value) * (brightness/100)),
+                            "g": int(255 * (brightness/100)),
+                            "b": 0,
+                        }
+                    elif division > 3:
+                        dmx[i] = {
+                            "r": 0,
+                            "g": int(255 * (brightness/100)),
+                            "b": 0}
+                    else:
+                        dmx[i] = {"r": 0, "g": int(255 * (brightness/100)), "b": 0}
+
+
             else:
                 try:
                     dmx[i] = {
-                        "r": int((previous_dmx[i]['r'] / fps) * (fps / 2)),
-                        "g": int((previous_dmx[i]['g'] / fps) * (fps / 2)),
-                        "b": int((previous_dmx[i]['b'] / fps) * (fps / 2))
+                        "r": int((previous_dmx[i]['r'] / fps) * (fps // 1.5)),
+                        "g": int((previous_dmx[i]['g'] / fps) * (fps // 1.5)),
+                        "b": int((previous_dmx[i]['b'] / fps) * (fps // 1.5))
                     }
                 except LookupError:
                     dmx[i] = {
@@ -120,7 +116,7 @@ class BuildDMX:
         return dmx_data
 
 
-def start_sequence(deviceid, loopback, channels, sampleRate, fps):
+def start_sequence(deviceid, loopback, channels, sampleRate, fps, brightness):
     stream = p.open(
         format=pyaudio.paInt16,
         channels=int(channels),
@@ -138,12 +134,12 @@ def start_sequence(deviceid, loopback, channels, sampleRate, fps):
         data = np.frombuffer(stream.read(1024), dtype=np.int16)
         data_left = data[0::2]
         data_right = data[1::2]
-        (dmx_dict_left) = BuildDMX.dict(data_left, old_left, fps)
-        (dmx_dict_right) = BuildDMX.dict(data_right, old_right, fps)
+        (dmx_dict_left) = BuildDMX.dict(data_left, old_left, fps, brightness)
+        (dmx_dict_right) = BuildDMX.dict(data_right, old_right, fps, brightness)
         dmx_tuple_left = BuildDMX.tuple(dmx_dict_left, args.rl)
         dmx_tuple_right = BuildDMX.tuple(dmx_dict_right, args.rr)
         sender[1].dmx_data = dmx_tuple_left + dmx_tuple_right
-        time.sleep(1 / int(fps))
+        time.sleep(1 // fps)
         old_left = dmx_dict_left
         old_right = dmx_dict_right
 
@@ -186,6 +182,9 @@ if __name__ == "__main__":
     elif args.ip is None:
         print("IP address required, use --help")
         sys.exit()
+    elif args.brightness > 100:
+        print("Brightness cannot be above 100%")
+        sys.exit()
     try:
         if args.id is None:
             deviceid = soundcardlist["default"]
@@ -207,6 +206,7 @@ if __name__ == "__main__":
             channels,
             soundcardlist[deviceid]["sampleRate"],
             args.fps,
+            args.brightness,
         )
     except Exception as e:
         print("Exception:", e)
