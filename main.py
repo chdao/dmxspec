@@ -31,7 +31,6 @@ def parse_args(choices):
     parser.add_argument("-p", "--pixels", help="Length of strip", default=10)
     parser.add_argument("-f", "--frames", help="Frames for pyAudio", default=512)
     parser.add_argument("--fps", help="Frame Per Second (refresh rate)", default=30)
-
     return parser.parse_args()
 
 
@@ -122,9 +121,9 @@ def start_sequence(deviceid, loopback, channels, sampleRate, fps):
         data_right = data[1::2]
         (dmx_dict_left) = BuildDMX.dict(data_left, old_left, fps)
         (dmx_dict_right) = BuildDMX.dict(data_right, old_right, fps)
-        dmx_tupple_left = BuildDMX.tuple(dmx_dict_left, args.rl)
-        dmx_tupple_right = BuildDMX.tuple(dmx_dict_right, args.rr)
-        sender[1].dmx_data = dmx_tupple_left + dmx_tupple_right
+        dmx_tuple_left = BuildDMX.tuple(dmx_dict_left, args.rl)
+        dmx_tuple_right = BuildDMX.tuple(dmx_dict_right, args.rr)
+        sender[1].dmx_data = dmx_tuple_left + dmx_tuple_right
         time.sleep(1 / int(fps))
         old_left = dmx_dict_left
         old_right = dmx_dict_right
