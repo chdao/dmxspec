@@ -33,7 +33,6 @@ def parse_args(choices):
     parser.add_argument("--fps", help="Frame Per Second (refresh rate)", default=30)
     return parser.parse_args()
 
-
 class BuildDMX:
     def dict(data, previous_dmx, fps):
         dmx = {}
@@ -44,32 +43,52 @@ class BuildDMX:
                 * float(args.multi)
         )
         for i in range(int(pixels / 2)):
-            division = pixels / 6
-            if i <= int(peak) and i <= int(pixels / 6) and peak > 0.1:
-                dmx[i] = {
-                    "r": int((i * (100 / division)) * 2.55),
-                    "g": 255,
-                    "b": 0,
-                }
-
-            elif int(peak) >= i > division and i <= (division * 2):
-                dmx[i] = {
-                    "r": 255,
-                    "g": 255 - int(((i - division) * (100 / division)) * 2.55),
-                    "b": 0,
-                }
-            elif int(peak) >= i > (division * 2):
-                dmx[i] = {
-                    "r": 255,
-                    "g": 0,
-                    "b": 0,
-                }
+            division = ((pixels // 12) // 2)
+            if int(peak) >= i and peak >= 0.1:
+                if division * 11 < i:
+                    dmx[i] = {
+                        "r": 255,
+                        "g": 0,
+                        "b": 0,
+                    }
+                elif division * 10 < i <= division * 11:
+                    fade_value = int((i - division) * (100 / (division * 11)) * 2.55)
+                    dmx[i] = {
+                        "r": 255,
+                        "g": 255 - fade_value,
+                        "b": 0,
+                    }
+                elif division * 9 < i <= division * 10:
+                    fade_value = int((i - division) * (100 / (division * 10)) * 2.55)
+                    dmx[i] = {
+                        "r": fade_value,
+                        "g": 255,
+                        "b": 0,
+                    }
+                elif division * 8 < i <= division * 9:
+                    dmx[i] = {
+                        "r": 255,
+                        "g": 255,
+                        "b": 0,
+                    }
+                elif division * 7 < i <= division * 8:
+                    fade_value = int((i - division) * (100 / (division * 8)) * 2.55)
+                    dmx[i] = {
+                        "r": fade_value,
+                        "g": 255,
+                        "b": 0}
+                else:
+                    dmx[i] = {
+                        "r": 0,
+                        "g": 255,
+                        "b": 0,
+                    }
             else:
                 try:
                     dmx[i] = {
-                        "r": int((previous_dmx[i]['r'] / fps) * (fps / 3)),
-                        "g": int((previous_dmx[i]['g'] / fps) * (fps / 3)),
-                        "b": int((previous_dmx[i]['b'] / fps) * (fps / 3))
+                        "r": int((previous_dmx[i]['r'] / fps) * (fps / 2)),
+                        "g": int((previous_dmx[i]['g'] / fps) * (fps / 2)),
+                        "b": int((previous_dmx[i]['b'] / fps) * (fps / 2))
                     }
                 except LookupError:
                     dmx[i] = {
