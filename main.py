@@ -21,7 +21,7 @@ def parse_args(choices):
     parser.add_argument("--id", help="Index of the soundcard")
     parser.add_argument("--list", help="List available soundcards", action="store_true")
     parser.add_argument(
-        "--multi", type=float, help="Aplitude multiplier", default="1.5"
+        "--multi", type=float, help="Amplitude multiplier", default="1.5"
     )
     parser.add_argument("--rr", help="Reverse Right Channel", action="store_true")
     parser.add_argument("--rl", help="Reverse Left Channel", action="store_true")
