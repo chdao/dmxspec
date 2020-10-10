@@ -130,3 +130,6 @@ dmypy.json
 
 # PyInstaller
 main.build
+
+# Compiled
+main.exe
