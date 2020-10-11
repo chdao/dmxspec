@@ -67,7 +67,8 @@ class BuildDMX:
                 fade_value = int(
                     ((i - (section_size * (division - 1))) * section_size) * 2.55
                 )
-                # A real VU meter should be 1/6 red, multiplied by the brightness %
+                # A real VU meter should be 1/6
+                # red, multiplied by the brightness %
                 if division >= 6:
                     dmx[i] = {
                         "r": int(255 * (brightness / 100)),
@@ -99,6 +100,10 @@ class BuildDMX:
                         "g": int((previous_dmx[i]["g"] / fps) * (fps // 1.1)),
                         "b": int((previous_dmx[i]["b"] / fps) * (fps // 1.1)),
                     }
+                    for j in ["r", "g", "b"]:
+                        if dmx[i][j] < 1:
+                            dmx[i][j] == 0
+
                 except LookupError:
                     # One the first run previous_dmx is empty, set all to black
                     dmx[i] = {

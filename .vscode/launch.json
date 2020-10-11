@@ -13,7 +13,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "windows": {
-                "args": ["--ip 10.2.20.240"]
+                "args": ["--ip","10.2.20.240","--pixels","110","--rr"]
             },
         }
     ]
