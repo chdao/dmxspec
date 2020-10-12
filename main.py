@@ -117,8 +117,7 @@ class BuildDMX:
                     dmx[i] = {"r": 0, "g": 0, "b": 0}
         return dmx
 
-    def output(self, data):
-        global previous_dmx
+    def output(self, data, previous_dmx):
         dmx_data = {}
         output_data = []
         for channel in range(0, 2):
@@ -128,13 +127,14 @@ class BuildDMX:
                 * self.pixels
                 * float(self.multi)
             )
+            # Send previous dmx data. If this is the first rul, it'll raise LookupError.
             try:
                 dmx_data[channel] = self.build_rgb(channel, peak, previous_dmx[channel])
             except LookupError:
                 dmx_data[channel] = self.build_rgb(channel, peak)
         for i in dmx_data:
             if self.channel_order[i] is True:
-                for j in range(len(dmx_data[i]) - 1, 0, -1):
+                for j in range(len(dmx_data[i]) - 1, -1, -1):
                     for c in ("r", "g", "b"):
                         # Create a list of all the LEDs from the dmx_data
                         output_data.append(dmx_data[i][j][c])
@@ -144,9 +144,8 @@ class BuildDMX:
                         # Create a list of all the LEDs from the dmx_data
                         output_data.append(dmx_data[i][j][c])
 
-        previous_dmx = dmx_data
         # Change the list to a tuple for the dmx library
-        return tuple(output_data)
+        return (tuple(output_data), dmx_data)
 
 
 def start_sequence(
@@ -178,11 +177,10 @@ def start_sequence(
     sender.activate_output(1)
     sender[1].destination = ip
     dmx = BuildDMX(pixels, fps, brightness, multi, rr, rl)
-    global previous_dmx
     previous_dmx = {}
     while True:
         data = np.frombuffer(stream.read(1024), dtype=np.int16)
-        dmx_data = dmx.output(data)
+        (dmx_data, previous_dmx) = dmx.output(data, previous_dmx)
         sender[1].dmx_data = dmx_data
         terminal_led(dmx_data)
         time.sleep(1 // fps)
