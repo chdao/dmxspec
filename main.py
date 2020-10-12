@@ -177,22 +177,21 @@ def start_sequence(
     sender.start()
     sender.activate_output(1)
     sender[1].destination = ip
-    dmx_output = BuildDMX(pixels, fps, brightness, multi, rr, rl)
+    dmx = BuildDMX(pixels, fps, brightness, multi, rr, rl)
     global previous_dmx
     previous_dmx = {}
     while True:
         data = np.frombuffer(stream.read(1024), dtype=np.int16)
-        sender[1].dmx_data = dmx_output.output(data)
-        # terminal_led(dmx_tuple_left, dmx_tuple_right)
+        dmx_data = dmx.output(data)
+        sender[1].dmx_data = dmx_data
+        terminal_led(dmx_data)
         time.sleep(1 // fps)
 
 
-def terminal_led(dmx_tuple_left, dmx_tuple_right):
+def terminal_led(dmx_data):
     cursor.hide()
-    for i in range(0, len(dmx_tuple_left), 3):
-        print(color("█", fore=(dmx_tuple_left[i : i + 3])), end="")
-    for i in range(0, len(dmx_tuple_right), 3):
-        print(color("█", fore=(dmx_tuple_right[i : i + 3])), end="")
+    for i in range(0, len(dmx_data), 3):
+        print(color("█", fore=(dmx_data[i : i + 3])), end="")
     print("]", end="")
     print("\r [", end="")
 
