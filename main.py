@@ -45,7 +45,6 @@ class BuildDMX:
     def __init__(self, pixels, fps, brightness, multi, reverse_right, reverse_left):
         self.channel_size = pixels // 2
         self.section_size = self.channel_size / 6
-        self.previous_dmx = {}
         self.maxValue = 2 ** 16
         self.fps = fps
         self.brightness = brightness
@@ -53,8 +52,9 @@ class BuildDMX:
         self.reverse_right = reverse_right
         self.reverse_left = reverse_left
         self.pixels = pixels
+        self.channel_order = {0: reverse_left, 1: reverse_right}
 
-    def build_rgb(self, channel, peak):
+    def build_rgb(self, channel, peak, previous_dmx=None):
         dmx = {}
         # Get the peak (volume) value of the channel
         for i in range(self.channel_size):
@@ -103,27 +103,22 @@ class BuildDMX:
                 try:
                     dmx[i] = {
                         # Decay the LEDs off, makes transitions smoother
-                        "r": int(
-                            (self.previous_dmx[i]["r"] / self.fps) * (self.fps // 1.1)
-                        ),
-                        "g": int(
-                            (self.previous_dmx[i]["g"] / self.fps) * (self.fps // 1.1)
-                        ),
-                        "b": int(
-                            (self.previous_dmx[i]["b"] / self.fps) * (self.fps // 1.1)
-                        ),
+                        "r": int((previous_dmx[i]["r"] / self.fps) * (self.fps // 1.1)),
+                        "g": int((previous_dmx[i]["g"] / self.fps) * (self.fps // 1.1)),
+                        "b": int((previous_dmx[i]["b"] / self.fps) * (self.fps // 1.1)),
                     }
                     # If the brightness is under 1, turn off completely.
                     for j in ["r", "g", "b"]:
                         if dmx[i][j] < 1:
-                            raise LookupError
+                            dmx[i][j] = 0
 
-                except LookupError:
+                except Exception:
                     # One the first run previous_dmx is empty, set all to black
                     dmx[i] = {"r": 0, "g": 0, "b": 0}
         return dmx
 
     def output(self, data):
+        global previous_dmx
         dmx_data = {}
         output_data = []
         for channel in range(0, 2):
@@ -133,13 +128,24 @@ class BuildDMX:
                 * self.pixels
                 * float(self.multi)
             )
-            print(peak)
-            dmx_data[channel] = self.build_rgb(channel, peak)
+            try:
+                dmx_data[channel] = self.build_rgb(channel, peak, previous_dmx[channel])
+            except LookupError:
+                dmx_data[channel] = self.build_rgb(channel, peak)
         for i in dmx_data:
-            for j in dmx_data[i]:
-                for c in ("r", "g", "b"):
-                    output_data.append(dmx_data[i][j][c])
-        self.previous_dmx = dmx_data
+            if self.channel_order[i] is True:
+                for j in range(len(dmx_data[i]) - 1, 0, -1):
+                    for c in ("r", "g", "b"):
+                        # Create a list of all the LEDs from the dmx_data
+                        output_data.append(dmx_data[i][j][c])
+            else:
+                for j in dmx_data[i]:
+                    for c in ("r", "g", "b"):
+                        # Create a list of all the LEDs from the dmx_data
+                        output_data.append(dmx_data[i][j][c])
+
+        previous_dmx = dmx_data
+        # Change the list to a tuple for the dmx library
         return tuple(output_data)
 
 
@@ -171,20 +177,11 @@ def start_sequence(
     sender.start()
     sender.activate_output(1)
     sender[1].destination = ip
+    dmx_output = BuildDMX(pixels, fps, brightness, multi, rr, rl)
+    global previous_dmx
+    previous_dmx = {}
     while True:
-        dmx_dict_left = {}
-        dmx_dict_right = {}
         data = np.frombuffer(stream.read(1024), dtype=np.int16)
-        # data_left = data[0::2]
-        # data_right = data[1::2]
-        # Take the data from each channel and construct a dict with the LED value of pixels / 2
-        # (dmx_dict_left) = BuildDMX.dict(data_left, old_left, fps, brightness)
-        # (dmx_dict_right) = BuildDMX.dict(data_right, old_right, fps, brightness)
-        # Take the dict and apply reversing (or not) on each and return them as tuple
-        # dmx_tuple_left = BuildDMX.output(dmx_dict_left, args.rl)
-        # dmx_tuple_right = BuildDMX.output(dmx_dict_right, args.rr)
-        # Send to the LED strip.
-        dmx_output = BuildDMX(pixels, fps, brightness, multi, rr, rl)
         sender[1].dmx_data = dmx_output.output(data)
         # terminal_led(dmx_tuple_left, dmx_tuple_right)
         time.sleep(1 // fps)
