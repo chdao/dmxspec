@@ -94,7 +94,11 @@ class BuildDMX:
                     }
                 # Pure green
                 elif peak > 1:
-                    dmx[i] = {"r": 0, "g": int(255 * (self.brightness / 100)), "b": 0}
+                    dmx[i] = {
+                        "r": 0,
+                        "g": int(255 * (self.brightness / 100)),
+                        "b": 0,
+                    }
             else:
                 try:
                     dmx[i] = {
@@ -121,15 +125,22 @@ class BuildDMX:
 
     def output(self, data):
         dmx_data = {}
-        for i in range(0, 2):
+        output_data = []
+        for channel in range(0, 2):
             peak = (
-                int(np.abs(np.max(data[i::2])) - int(np.min(data[i::2])))
+                int(np.abs(np.max(data[channel::2])) - int(np.min(data[channel::2])))
                 / self.maxValue
                 * self.pixels
                 * float(self.multi)
             )
             print(peak)
-            dmx_data = self.build_rgb(channel, peak)
+            dmx_data[channel] = self.build_rgb(channel, peak)
+        for i in dmx_data:
+            for j in dmx_data[i]:
+                for c in ("r", "g", "b"):
+                    output_data.append(dmx_data[i][j][c])
+        self.previous_dmx = dmx_data
+        return tuple(output_data)
 
 
 def start_sequence(
@@ -145,6 +156,7 @@ def start_sequence(
     multi: object,
     rr: object,
     rl: object,
+    ip: object,
 ) -> object:
     stream = p.open(
         format=pyaudio.paInt16,
@@ -155,8 +167,10 @@ def start_sequence(
         input_device_index=int(deviceid),
         as_loopback=loopback,
     )
-    old_left = {}
-    old_right = {}
+    sender = sacn.sACNsender()
+    sender.start()
+    sender.activate_output(1)
+    sender[1].destination = ip
     while True:
         dmx_dict_left = {}
         dmx_dict_right = {}
@@ -171,13 +185,7 @@ def start_sequence(
         # dmx_tuple_right = BuildDMX.output(dmx_dict_right, args.rr)
         # Send to the LED strip.
         dmx_output = BuildDMX(pixels, fps, brightness, multi, rr, rl)
-        dmx_output.output(data)
-
-        print(dmx_output)
-        # BuildDMX.output(
-        #    data, fps, args.rr, args.rl, brightness, args.multi, args.pixels
-        # )
-        sender[1].dmx_data = dmx_output
+        sender[1].dmx_data = dmx_output.output(data)
         # terminal_led(dmx_tuple_left, dmx_tuple_right)
         time.sleep(1 // fps)
 
@@ -241,10 +249,7 @@ def main():
             deviceid = soundcardlist["default"]
         else:
             deviceid = int(args.id)
-        sender = sacn.sACNsender()
-        sender.start()
-        sender.activate_output(1)
-        sender[1].destination = str(args.ip)
+
         if soundcardlist[deviceid]["outChannels"] > 0:
             loopback = True
             channels = soundcardlist[deviceid]["outChannels"]
@@ -265,6 +270,7 @@ def main():
                 args.multi,
                 args.rr,
                 args.rl,
+                args.ip,
             )
         except Exception as e:
             print("Sequence failed to start:" + str(e))
