@@ -52,6 +52,8 @@ class BuildDMX:
         self.reverse_right = reverse_right
         self.reverse_left = reverse_left
         self.pixels = pixels
+        # Mapping channels to numbers, this is
+        # to match the data taken from pyaudio.
         self.channel_order = {0: reverse_left, 1: reverse_right}
 
     def build_rgb(self, channel, peak, previous_dmx=None):
@@ -149,19 +151,19 @@ class BuildDMX:
 
 
 def start_sequence(
-    deviceid: object,
-    loopback: object,
-    channels: object,
-    sampleRate: object,
-    fps: object,
-    brightness: object,
+    deviceid: int,
+    loopback: bool,
+    channels: int,
+    sampleRate: int,
+    fps: int,
+    brightness: int,
     p: object,
-    defaultframes: object,
-    pixels: object,
-    multi: object,
-    rr: object,
-    rl: object,
-    ip: object,
+    defaultframes: int,
+    pixels: int,
+    multi: float,
+    rr: bool,
+    rl: bool,
+    ip: str,
 ) -> object:
     stream = p.open(
         format=pyaudio.paInt16,
@@ -178,20 +180,24 @@ def start_sequence(
     sender[1].destination = ip
     dmx = BuildDMX(pixels, fps, brightness, multi, rr, rl)
     previous_dmx = {}
-    while True:
-        data = np.frombuffer(stream.read(1024), dtype=np.int16)
-        (dmx_data, previous_dmx) = dmx.output(data, previous_dmx)
-        sender[1].dmx_data = dmx_data
-        terminal_led(dmx_data)
-        time.sleep(1 // fps)
+    try:
+        while True:
+            data = np.frombuffer(stream.read(1024), dtype=np.int16)
+            (dmx_data, previous_dmx) = dmx.output(data, previous_dmx)
+            sender[1].dmx_data = dmx_data
+            terminal_led(dmx_data)
+            time.sleep(1 // fps)
+    except KeyboardInterrupt:
+        sender.stop()
+        cursor.show()
 
 
 def terminal_led(dmx_data):
-    cursor.hide()
+
+    vumeter = ""
     for i in range(0, len(dmx_data), 3):
-        print(color("█", fore=(dmx_data[i : i + 3])), end="")
-    print("]", end="")
-    print("\r [", end="")
+        vumeter = vumeter + color("█", fore=(dmx_data[i : i + 3]))
+    print("\r[" + vumeter + "]", end="")
 
 
 # devices = AudioUtilities.GetSpeakers()
@@ -231,52 +237,43 @@ def main():
                     print(i, soundcardlist[i]["name"], "[DEFAULT]")
                 else:
                     print(i, soundcardlist[i]["name"])
-        sys.exit()
+        raise Exception
     elif args.ip is None:
         print("IP address required, use --help")
-        sys.exit()
+        raise Exception
     elif args.brightness > 100:
         print("Brightness cannot be above 100%")
-        sys.exit()
-    try:
-        if args.id is None:
-            deviceid = soundcardlist["default"]
-        else:
-            deviceid = int(args.id)
+        raise Exception
+    if args.id is None:
+        deviceid = soundcardlist["default"]
+    else:
+        deviceid = int(args.id)
 
-        if soundcardlist[deviceid]["outChannels"] > 0:
-            loopback = True
-            channels = soundcardlist[deviceid]["outChannels"]
-        else:
-            loopback = False
-            channels = soundcardlist[deviceid]["inChannels"]
-        try:
-            start_sequence(
-                deviceid,
-                loopback,
-                channels,
-                soundcardlist[deviceid]["sampleRate"],
-                fps,
-                brightness,
-                p,
-                defaultframes,
-                pixels,
-                args.multi,
-                args.rr,
-                args.rl,
-                args.ip,
-            )
-        except Exception as e:
-            print("Sequence failed to start:" + str(e))
-    except Exception as e:
-        print("Exception:", e)
-        sender.stop()
-        cursor.show()
+    if soundcardlist[deviceid]["outChannels"] > 0:
+        loopback = True
+        channels = soundcardlist[deviceid]["outChannels"]
+    else:
+        loopback = False
+        channels = soundcardlist[deviceid]["inChannels"]
+    start_sequence(
+        deviceid,
+        loopback,
+        channels,
+        soundcardlist[deviceid]["sampleRate"],
+        fps,
+        brightness,
+        p,
+        defaultframes,
+        pixels,
+        args.multi,
+        args.rr,
+        args.rl,
+        args.ip,
+    )
 
 
 if __name__ == "__main__":
     try:
         main()
-    except:
-        sender.stop()
-        cursor.show()
+    except Exception as e:
+        print(e)
