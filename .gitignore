@@ -133,3 +133,6 @@ main.build
 
 # Compiled
 main.exe
+
+# Don't send your VSCode settings.
+.vscode/settings.json
