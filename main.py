@@ -222,7 +222,7 @@ def terminal_led(dmx_data):
     cursor.hide()
     vumeter = ""
     for i in range(0, len(dmx_data), 3):
-        vumeter = vumeter + color("#", fore=(dmx_data[i : i + 3]))
+        vumeter = vumeter + color("#", fore=(dmx_data[i: i + 3]))
     print("\r[" + vumeter + "]", end="")
 
 
