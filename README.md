@@ -5,7 +5,7 @@ VU Meter for DMX LED strips
 This program will analyze what comes out of a soundcard and will display a VUMeter from it. This was developed specifically for a DMX (over wifi) LED strip.
 
 ## Usage
-dmxspec.py --ip <IP of the strip> --pixels <number of LEDs>
+dmxspec.py --ip (IP of the strip) --pixels (number of LEDs)
 
 ### Options
 --rr        Reverse right channel

@@ -17,6 +17,7 @@ SoundCard = "^0.4.0"
 mypy = "*"
 pylint = "*"
 autopep8 = "*"
+pyinstaller = "^4.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

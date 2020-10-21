@@ -28,7 +28,7 @@ def parse_args(choices):
     parser.add_argument("--rl", help="Reverse Left Channel", action="store_true")
     parser.add_argument("-p", "--pixels", type=int, help="Length of strip", default=100)
     parser.add_argument(
-        "-f", "--frames", type=int, help="Frames for pyAudio", default=512
+        "-f", "--frames", type=str, help="Frames for pyAudio", default=None
     )
     parser.add_argument(
         "--fps", type=int, help="Frame Per Second (refresh rate)", default=100
@@ -63,7 +63,7 @@ class BuildDMX:
         self.reverse_right = reverse_right
         self.reverse_left = reverse_left
         self.pixels = pixels
-        self.fade_multiplier = 1.2
+        self.fade_multiplier = 1.15
         # Mapping channels to numbers, this is
         # to match the data taken from pyaudio.
         self.channel_order = {0: reverse_left, 1: reverse_right}
@@ -157,12 +157,12 @@ class BuildDMX:
             # Create a list of all the LEDs from dmx_data
             if self.channel_order[channel] is True:
                 for j in range(len(dmx_data[channel]) - 1, -1, -1):
-                    for color in ("r", "g", "b"):
-                        output_data.append(dmx_data[channel][j][color])
+                    for rgb in ("r", "g", "b"):
+                        output_data.append(dmx_data[channel][j][rgb])
             else:
                 for j in dmx_data[channel]:
-                    for color in ("r", "g", "b"):
-                        output_data.append(dmx_data[channel][j][color])
+                    for rgb in ("r", "g", "b"):
+                        output_data.append(dmx_data[channel][j][rgb])
 
         # Change the list to a tuple for the dmx library
         return (tuple(output_data), dmx_data)
@@ -173,7 +173,7 @@ class BuildDMX:
         """
         peak = int
         current_channel = []
-        values = data[::10]
+        values = data[::100]
         for i in values:
             current_channel.append(i[channel])
             peak = (
@@ -186,7 +186,6 @@ class BuildDMX:
 
 def start_sequence(
     deviceid: int,
-    channels: int,
     sampleRate: int,
     fps: int,
     brightness: int,
@@ -200,7 +199,7 @@ def start_sequence(
     """
     Main sequence
     """
-    recording_device = sc.get_microphone(sc.default_speaker().id, include_loopback=True)
+    recording_device = sc.get_microphone(deviceid, include_loopback=True)
     sender = sacn.sACNsender()
     sender.start()
     sender.activate_output(1)
@@ -210,7 +209,7 @@ def start_sequence(
 
     try:
         while True:
-            data = recording_device.record(samplerate=48000, numframes=None, blocksize=512)
+            data = recording_device.record(samplerate=sampleRate, numframes=defaultframes, blocksize=128)
             (dmx_data, previous_dmx) = dmx.output(data, previous_dmx)
             sender[1].dmx_data = dmx_data
             terminal_led(dmx_data)
@@ -237,7 +236,7 @@ def main():
     """
     soundcardlist = sc.all_microphones(include_loopback=True)
     args = parse_args(soundcardlist)
-    defaultframes = int(args.frames)
+    defaultframes = args.frames
     pixels = int(args.pixels)
     fps = int(args.fps)
     brightness = args.brightness
@@ -264,7 +263,6 @@ def main():
 
     start_sequence(
         deviceid,
-        2,
         48000,
         fps,
         brightness,
