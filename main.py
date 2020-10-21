@@ -1,12 +1,17 @@
+"""
+Hello!
+"""
+import time
+import argparse
 import numpy as np
 import sacn
-import time
-import sys
+
+
+# import sys
 import soundcard as sc
 
 # from comtypes import CLSCTX_ALL
 # from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-import argparse
 from colr import color
 import cursor
 
@@ -18,14 +23,12 @@ def parse_args(choices):
     parser.add_argument("--ip", help="Destination DMX server")
     parser.add_argument("--id", help="Index of the soundcard")
     parser.add_argument("--list", help="List available soundcards", action="store_true")
-    parser.add_argument(
-        "--multi", type=float, help="Amplitude multiplier", default="1.5"
-    )
+    parser.add_argument("--multi", type=float, help="Amplitude multiplier", default="1")
     parser.add_argument("--rr", help="Reverse Right Channel", action="store_true")
     parser.add_argument("--rl", help="Reverse Left Channel", action="store_true")
-    parser.add_argument("-p", "--pixels", type=int, help="Length of strip", default=10)
+    parser.add_argument("-p", "--pixels", type=int, help="Length of strip", default=100)
     parser.add_argument(
-        "-f", "--frames", type=int, help="Frames for pyAudio", default=512
+        "-f", "--frames", type=int, help="Frames for pyAudio", default=256
     )
     parser.add_argument(
         "--fps", type=int, help="Frame Per Second (refresh rate)", default=30
@@ -43,7 +46,7 @@ def parse_args(choices):
 
 class BuildDMX:
     def __init__(
-        self: object,
+        self,
         pixels: int,
         fps: int,
         brightness: int,
@@ -60,16 +63,22 @@ class BuildDMX:
         self.reverse_right = reverse_right
         self.reverse_left = reverse_left
         self.pixels = pixels
+        self.fade_multiplier = 1.1
         # Mapping channels to numbers, this is
         # to match the data taken from pyaudio.
         self.channel_order = {0: reverse_left, 1: reverse_right}
 
-    def build_rgb(self: object, peak: float, previous_dmx: dict = None):
+    def build_rgb(self, peak: float, previous_dmx: dict = None):
+        """
+
+        bite
+
+        """
         dmx = {}
         # Get the peak (volume) value of the channel
         for i in range(self.channel_size):
             if i == 0:
-                division = int(i + 1 // self.section_size + 1)
+                division = 1
             else:
                 division = int(i // self.section_size + 1)
             if int(peak) >= i + 0.1:
@@ -103,31 +112,42 @@ class BuildDMX:
                         "b": 0,
                     }
                 # Pure green
-                elif peak > 1:
+                else:
                     dmx[i] = {
                         "r": 0,
                         "g": int(255 * (self.brightness / 100)),
                         "b": 0,
                     }
             else:
-                try:
+                if previous_dmx is not None:
                     dmx[i] = {
                         # Decay the LEDs off, makes transitions smoother
-                        "r": int((previous_dmx[i]["r"] / self.fps) * (self.fps // 1.1)),
-                        "g": int((previous_dmx[i]["g"] / self.fps) * (self.fps // 1.1)),
-                        "b": int((previous_dmx[i]["b"] / self.fps) * (self.fps // 1.1)),
+                        "r": int(
+                            (previous_dmx[i]["r"] / self.fps)
+                            * (self.fps // self.fade_multiplier)
+                        ),
+                        "g": int(
+                            (previous_dmx[i]["g"] / self.fps)
+                            * (self.fps // self.fade_multiplier)
+                        ),
+                        "b": int(
+                            (previous_dmx[i]["b"] / self.fps)
+                            * (self.fps // self.fade_multiplier)
+                        ),
                     }
                     # If the brightness is under 1, turn off completely.
                     for j in ["r", "g", "b"]:
                         if dmx[i][j] < 1:
                             dmx[i][j] = 0
-
-                except Exception:
+                else:
                     # One the first run previous_dmx is empty, set all to black
                     dmx[i] = {"r": 0, "g": 0, "b": 0}
         return dmx
 
-    def output(self: object, data: list, previous_dmx: dict):
+    def output(self, data: list, previous_dmx: dict):
+        """
+        bite 2
+        """
         dmx_data = {}
         output_data = []
 
@@ -139,16 +159,15 @@ class BuildDMX:
                 dmx_data[channel] = self.build_rgb(peak, previous_dmx[channel])
             except LookupError:
                 dmx_data[channel] = self.build_rgb(peak)
+            # Create a list of all the LEDs from dmx_data
             if self.channel_order[channel] is True:
                 for j in range(len(dmx_data[channel]) - 1, -1, -1):
-                    for c in ("r", "g", "b"):
-                        # Create a list of all the LEDs from the dmx_data
-                        output_data.append(dmx_data[channel][j][c])
+                    for color in ("r", "g", "b"):
+                        output_data.append(dmx_data[channel][j][color])
             else:
                 for j in dmx_data[channel]:
-                    for c in ("r", "g", "b"):
-                        # Create a list of all the LEDs from the dmx_data
-                        output_data.append(dmx_data[channel][j][c])
+                    for color in ("r", "g", "b"):
+                        output_data.append(dmx_data[channel][j][color])
 
         # Change the list to a tuple for the dmx library
         return (tuple(output_data), dmx_data)
@@ -158,11 +177,11 @@ class BuildDMX:
         current_channel = []
         for i in data:
             current_channel.append(i[channel])
-        peak = (
-            np.abs(np.max(current_channel) - np.min(current_channel))
-            * self.pixels
-            * float(self.multi)
-        )
+            peak = (
+                np.abs(np.max(current_channel) - np.min(current_channel))
+                * self.pixels
+                * float(self.multi)
+            )
         return peak
 
 
@@ -189,7 +208,7 @@ def start_sequence(
 
     try:
         while True:
-            data = recording_device.record(samplerate=48000, numframes=512)
+            data = recording_device.record(samplerate=48000, numframes=defaultframes)
             (dmx_data, previous_dmx) = dmx.output(data, previous_dmx)
             sender[1].dmx_data = dmx_data
             terminal_led(dmx_data)
@@ -205,28 +224,6 @@ def terminal_led(dmx_data):
     for i in range(0, len(dmx_data), 3):
         vumeter = vumeter + color("#", fore=(dmx_data[i : i + 3]))
     print("\r[" + vumeter + "]", end="")
-
-
-# devices = AudioUtilities.GetSpeakers()
-# interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-# volume = cast(interface, POINTER(IAudioEndpointVolume))
-
-
-# def get_soundcards(p):
-#    soundcards =
-#    for i in range(0, p.get_device_count()):
-#        info = p.get_device_info_by_index(i)
-#        if p.get_host_api_info_by_index(info["hostApi"])["index"] == 1:
-#            soundcards[i] = {
-#                "name": p.get_device_info_by_index(i)["name"],
-#                "outChannels": p.get_device_info_by_index(i)["maxOutputChannels"],
-#                "inChannels": p.get_device_info_by_index(i)["maxInputChannels"],
-#                "sampleRate": p.get_device_info_by_index(i)["defaultSampleRate"],
-#            }
-#            soundcards["default"] = p.get_host_api_info_by_index(info["hostApi"])[
-#                "defaultOutputDevice"
-#            ]
-#    return soundcards
 
 
 def main():
