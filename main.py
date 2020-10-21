@@ -171,7 +171,7 @@ class BuildDMX:
         """
         Get 1/4 of all the sound data and find the peak.
         """
-        peak = int
+        peak = 0
         current_channel = []
         values = data[::100]
         for i in values:
