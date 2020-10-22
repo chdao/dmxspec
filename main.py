@@ -169,11 +169,11 @@ class BuildDMX:
 
     def get_peak(self, data, channel: int):
         """
-        Get 1/4 of all the sound data and find the peak.
+        Get 1/10 of all the sound data and find the peak.
         """
         peak = 0
         current_channel = []
-        values = data[::100]
+        values = data[::int(len(data) * 0.1) + 1]
         for i in values:
             current_channel.append(i[channel])
             peak = (
