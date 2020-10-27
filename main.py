@@ -45,28 +45,21 @@ def parse_args(choices):
 
 
 class BuildDMX:
-    def __init__(
-        self,
-        pixels: int,
-        fps: int,
-        brightness: int,
-        multi: float,
-        reverse_right: bool,
-        reverse_left: bool,
-    ):
-        self.channel_size = pixels // 2
+    """
+    Class handling everything related to creating the tuples of RGB for DMX
+    """
+
+    def __init__(self, **kwargs):
+        self.channel_size = kwargs['pixels'] // 2
         self.section_size = self.channel_size / 6
-        self.maxvalue = 2 ** 16
-        self.fps = fps
-        self.brightness = brightness
-        self.multi = multi
-        self.reverse_right = reverse_right
-        self.reverse_left = reverse_left
-        self.pixels = pixels
+        self.fps = kwargs['fps']
+        self.brightness = kwargs['brightness']
+        self.multi = kwargs['multi']
+        self.pixels = kwargs['pixels']
         self.fade_multiplier = 1.15
         # Mapping channels to numbers, this is
-        # to match the data taken from pyaudio.
-        self.channel_order = {0: reverse_left, 1: reverse_right}
+        # to match the data taken from soundcard.
+        self.channel_order = {0: kwargs['rl'], 1: kwargs['rr']}
 
     def build_rgb(self, peak: float, previous_dmx: dict = None):
         """
@@ -141,7 +134,7 @@ class BuildDMX:
 
     def output(self, data: list, previous_dmx: dict):
         """
-        bite 2
+        Creates the tupple to send to the sender (DMX), based on the output of build_rgb
         """
         dmx_data = {}
         output_data = []
@@ -184,36 +177,47 @@ class BuildDMX:
         return peak
 
 
-def start_sequence(
-    deviceid: int,
-    sampleRate: int,
-    fps: int,
-    brightness: int,
-    defaultframes: int,
-    pixels: int,
-    multi: float,
-    rr: bool,
-    rl: bool,
-    ip: str,
-) -> object:
+def start_sequence(**kwargs):
     """
     Main sequence
     """
-    recording_device = sc.get_microphone(deviceid, include_loopback=True)
-    sender = sacn.sACNsender()
-    sender.start()
-    sender.activate_output(1)
-    sender[1].destination = ip
-    dmx = BuildDMX(pixels, fps, brightness, multi, rr, rl)
-    previous_dmx = {}
 
+    dmx = BuildDMX(
+        pixels=kwargs['pixels'],
+        fps=kwargs['fps'],
+        brightness=kwargs['brightness'],
+        multi=kwargs['multi'],
+        rr=kwargs['rr'],
+        rl=kwargs['rl'],
+        ip=kwargs['ip'])
+    previous_dmx: dict = {}
+    recording_device = sc.get_microphone(kwargs['deviceid'], include_loopback=True)
+    sender = sacn.sACNsender()
     try:
+        i = 0
         while True:
-            data = recording_device.record(samplerate=sampleRate, numframes=defaultframes, blocksize=128)
-            (dmx_data, previous_dmx) = dmx.output(data, previous_dmx)
-            sender[1].dmx_data = dmx_data
-            terminal_led(dmx_data)
-            time.sleep(0.001)
+            data = recording_device.record(
+                samplerate=kwargs['sampleRate'],
+                numframes=kwargs['defaultframes'],
+                blocksize=256)
+            if data is not None:
+                (dmx_data, previous_dmx) = dmx.output(data, previous_dmx)
+                if not sender.get_active_outputs():
+                    if any(map(lambda ele: ele != 0, dmx_data)):
+                        sender.activate_output(1)
+                        sender[1].destination = kwargs['ip']
+                        sender.start()
+                else:
+                    sender[1].dmx_data = dmx_data
+                    if not any(map(lambda ele: ele != 0, dmx_data)):
+                        # Don't deactivate too quickly. Wait a few seconds.
+                        if i >= 500:
+                            sender.deactivate_output(1)
+                            sender.stop()
+                            i = 0
+                        i += 1
+                terminal_led(dmx_data)
+            time.sleep(0.01)
     except KeyboardInterrupt:
         sender.stop()
         cursor.show()
@@ -236,10 +240,7 @@ def main():
     """
     soundcardlist = sc.all_microphones(include_loopback=True)
     args = parse_args(soundcardlist)
-    defaultframes = args.frames
     pixels = int(args.pixels)
-    fps = int(args.fps)
-    brightness = args.brightness
     if args.list is True:
         i = 0
         print("Default\t| Index\t| Name\n" + "-" * 50)
@@ -257,21 +258,24 @@ def main():
         print("Brightness cannot be above 100%")
         raise Exception
     if args.id is None:
+        if str(sc.default_speaker().id) is None:
+            print("No default speaker provided by OS, please use --list")
+            raise Exception
         deviceid = str(sc.default_speaker().id)
     else:
         deviceid = int(args.id)
 
     start_sequence(
-        deviceid,
-        48000,
-        fps,
-        brightness,
-        defaultframes,
-        pixels,
-        args.multi,
-        args.rr,
-        args.rl,
-        args.ip,
+        deviceid=deviceid,
+        sampleRate=48000,
+        fps=args.fps,
+        brightness=args.brightness,
+        defaultframes=args.frames,
+        pixels=pixels,
+        multi=args.multi,
+        rr=args.rr,
+        rl=args.rl,
+        ip=args.ip,
     )
 
 
