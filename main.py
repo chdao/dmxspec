@@ -28,7 +28,7 @@ def parse_args(choices):
     parser.add_argument("--rl", help="Reverse Left Channel", action="store_true")
     parser.add_argument("-p", "--pixels", type=int, help="Length of strip", default=100)
     parser.add_argument(
-        "-f", "--frames", type=str, help="Frames for pyAudio", default=None
+        "-f", "--frames", type=int, help="Frames for pyAudio", default=None
     )
     parser.add_argument(
         "--fps", type=int, help="Frame Per Second (refresh rate)", default=100
@@ -263,7 +263,7 @@ def main():
             raise Exception
         deviceid = str(sc.default_speaker().id)
     else:
-        deviceid = int(args.id)
+        deviceid = str(args.id)
 
     start_sequence(
         deviceid=deviceid,
